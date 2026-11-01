@@ -40,7 +40,7 @@ export class App extends EventEmitter {
     });
     this.config.on('error', (msg) => { this.log.add('warn', `config.json not applied: ${msg}`, 'system'); this.changed(); });
     this.ticker = setInterval(() => this.flush(), 1000);
-    this.log.add('info', 'Broadcast monitor started', 'system');
+    this.log.add('info', `Broadcast monitor started — settings file: ${this.config.file}`, 'system');
     this.flush();
   }
 
@@ -160,7 +160,8 @@ export class App extends EventEmitter {
       issues: this.issues.map(({ id, level, title, detail, since, source }) => ({ id, level, title, detail, since, source })),
       cards,
       log: this.log.recent(50),
-      notify: { channels: this.notifier.enabledChannels(), onlyWhenOnAir: !!this.cfg.notify?.onlyWhenOnAir }
+      notify: { channels: this.notifier.enabledChannels(), onlyWhenOnAir: !!this.cfg.notify?.onlyWhenOnAir },
+      settingsFile: this.config.file
     };
   }
 

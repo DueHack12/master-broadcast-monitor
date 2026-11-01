@@ -20,24 +20,56 @@ No dependencies, no build step, no `npm install`. Node 18+ is all it needs.
 
 ## Install and run
 
+### The app (easiest)
+
+Download the latest from
+[Releases](https://github.com/DueHack12/master-broadcast-monitor/releases/latest).
+Nothing else to install, not even Node.
+
+- **Windows:** `BroadcastMonitor-<version>-windows-x64.exe`. Double-click it. The
+  first time, Windows SmartScreen says it's from an unknown publisher, because
+  the app isn't code-signed: click **More info → Run anyway**.
+- **Mac:** unzip `BroadcastMonitor-<version>-macos.zip`, then right-click
+  **Broadcast Monitor → Open** the first time.
+- **Linux:** `BroadcastMonitor-<version>-linux-x64.tar.gz`.
+
+A console window opens showing the dashboard addresses, and the dashboard opens
+in your browser. **Closing that window stops the monitor.** Double-clicking the
+app again while it's running just opens the dashboard.
+
+Settings live in **`Documents\Broadcast Monitor\config.json`**, created on first
+start, with the `data` folder beside it. The path is printed in the console and
+shown at the bottom of the dashboard. If a `config.json` sits next to the
+`.exe`, that one is used instead, so a folder on a USB stick carries its own
+settings. Replacing the `.exe` with a newer version keeps your settings.
+
+Options work the same as from source: `BroadcastMonitor.exe --port 9000`,
+`--config <file>`, `--data <folder>`, `--no-open`.
+
+### From source
+
+You need [Node.js 18+](https://nodejs.org). There are no npm dependencies.
+
 ```bash
-git clone <this repo>
-cd broadcast-monitor
+git clone https://github.com/DueHack12/master-broadcast-monitor.git
+cd master-broadcast-monitor
 node server.js
 ```
 
 On Windows, double-click `start-windows.bat`; on a Mac, `start-mac.command`.
-Both check for Node and offer to update a git checkout when they start.
+Both check for Node and offer to update a git checkout when they start. From
+source, `config.json` and `data/` live in the checkout.
+
+### Either way
 
 ```
   Local    : http://localhost:8090
   Network  : http://192.168.1.42:8090
 ```
 
-Open the **Network** address on any screen on the broadcast network. The first
-start creates `config.json` from `config.example.json`. Edit it and save: the
-change applies immediately, with no restart. A typo is reported on the dashboard
-and the last good settings stay in use.
+Open the **Network** address on any screen on the broadcast network. Edit
+`config.json` and save: the change applies immediately, with no restart. A typo
+is reported on the dashboard and the last good settings stay in use.
 
 > Port 8090 is clear of vMix (8088, 8099), OpenStatsEngine (8080) and
 > ScoreConnect's MQTT (1883). Use `--port 9000` for another.
@@ -331,8 +363,20 @@ src/monitors/*.js        one per thing watched
 src/lib/*.js             vMix XML, MQTT, mDNS, ping, audio detection, sports
 public/                  the dashboard (plain HTML/CSS/JS)
 tools/simulator.js       fake equipment for testing and demos
+build/package.mjs        builds the .exe / .app / Linux binary
 data/                    YouTube sign-in, dashboard settings, events.jsonl log
 ```
+
+## Releasing a new version
+
+Bump `"version"` in `package.json` and push to `main`. The GitHub Actions
+workflow runs the tests, builds the Windows `.exe`, the macOS `.app` and a Linux
+binary, smoke-tests the packaged app, and publishes a release with all three
+attached. Release notes come from `docs/releases/v<version>.md` if it exists.
+
+To build locally: `npm run build` (this machine's platform) or
+`node build/package.mjs win linux`. The Windows `.exe` can be built on any OS;
+the Mac app needs a Mac.
 
 ## Tests
 

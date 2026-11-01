@@ -3,51 +3,79 @@
  * Broadcast Monitor — watches vMix, YouTube Live, audio levels, the Sportzcast
  * Scorebot, OpenStatsEngine and NDI, and shows it all on one page.
  *
- *   node server.js [--port 8090] [--config config.json] [--data data]
+ *   node server.js [--port 8090] [--config config.json] [--data data] [--open | --no-open]
+ *
+ * The packaged app (BroadcastMonitor.exe) takes the same options and opens the
+ * dashboard in a browser when it starts.
  */
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { ConfigStore } from './src/config.js';
 import { App } from './src/app.js';
 import { createServer } from './src/http.js';
+import { packaged, defaultHome, readAsset, openExternal, VERSION } from './src/runtime.js';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-
+const argv = process.argv.slice(2);
 function arg(name, fallback) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+  const i = argv.indexOf(`--${name}`);
+  return i > -1 && argv[i + 1] ? argv[i + 1] : fallback;
 }
 
-const configFile = path.resolve(arg('config', path.join(here, 'config.json')));
-const dataDir = path.resolve(arg('data', path.join(here, 'data')));
+if (packaged) process.title = 'Broadcast Monitor';
 
-const config = new ConfigStore(configFile, { example: path.join(here, 'config.example.json') });
-config.watch();
+/** A double-clicked app's window vanishes on exit; leave time to read why. */
+function fatal(msg) {
+  console.error(`\n  ${msg}\n`);
+  if (packaged) {
+    console.error('  This window closes in 30 seconds.');
+    setTimeout(() => process.exit(1), 30000);
+  } else process.exit(1);
+}
 
-const app = new App({ config, dataDir });
-app.start();
+const home = defaultHome();
+const configFile = path.resolve(arg('config', path.join(home, 'config.json')));
+const dataDir = path.resolve(arg('data', path.join(path.dirname(configFile), 'data')));
+const OPEN = argv.includes('--open') || (packaged && !argv.includes('--no-open'));
 
-const port = parseInt(arg('port', config.current.port), 10) || 8090;
-const server = createServer(app);
+let config;
+try {
+  config = new ConfigStore(configFile, { example: readAsset('config.example.json')?.toString('utf8') });
+} catch (e) {
+  fatal(`Could not set up ${configFile}: ${e.message}`);
+}
 
-server.listen(port, () => {
-  console.log(`\n  Broadcast Monitor is running\n`);
-  console.log(`  Local    : http://localhost:${port}`);
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const a of list || []) {
-      if ((a.family === 'IPv4' || a.family === 4) && !a.internal) console.log(`  Network  : http://${a.address}:${port}`);
+if (config) {
+  config.watch();
+  const app = new App({ config, dataDir });
+  app.start();
+
+  const port = parseInt(arg('port', config.current.port), 10) || 8090;
+  const server = createServer(app);
+
+  server.listen(port, () => {
+    console.log(`\n  Broadcast Monitor ${VERSION} is running\n`);
+    console.log(`  Local    : http://localhost:${port}`);
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const a of list || []) {
+        if ((a.family === 'IPv4' || a.family === 4) && !a.internal) console.log(`  Network  : http://${a.address}:${port}`);
+      }
     }
-  }
-  console.log(`\n  Config   : ${configFile}`);
-  console.log(`  Data     : ${dataDir}\n`);
-});
+    console.log(`\n  Settings : ${configFile}${config.created ? '   (new — edit it to match your setup)' : ''}`);
+    console.log(`  Data     : ${dataDir}`);
+    console.log(packaged ? '\n  Close this window to stop the monitor.\n' : '\n  Ctrl+C to stop.\n');
+    if (OPEN) openExternal(`http://localhost:${port}/`);
+  });
 
-server.on('error', (e) => {
-  console.error(e.code === 'EADDRINUSE' ? `Port ${port} is already in use — run with --port <other>.` : e);
-  process.exit(1);
-});
+  server.on('error', (e) => {
+    app.stop();
+    // Double-clicked again while already running: show the running one.
+    if (e.code === 'EADDRINUSE' && OPEN) openExternal(`http://localhost:${port}/`);
+    fatal(e.code === 'EADDRINUSE'
+      ? `Port ${port} is already in use — Broadcast Monitor may already be running (try http://localhost:${port}). Otherwise start it with --port <other>.`
+      : e.message);
+  });
 
-const shutdown = () => { app.stop(); server.close(); process.exit(0); };
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+  const shutdown = () => { app.stop(); server.close(); process.exit(0); };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}

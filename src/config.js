@@ -96,18 +96,24 @@ export function deepMerge(base, over) {
 }
 
 export class ConfigStore extends EventEmitter {
+  /**
+   * @param file     config.json path
+   * @param example  text of config.example.json, written to `file` if it does not exist yet
+   */
   constructor(file, { example } = {}) {
     super();
     this.file = path.resolve(file);
     this.example = example;
+    this.created = false;
     this.error = null;
     this.current = this._read() || deepMerge(DEFAULTS, {});
   }
 
   _read() {
-    if (!fs.existsSync(this.file) && this.example && fs.existsSync(this.example)) {
-      fs.copyFileSync(this.example, this.file);
-      console.log(`Created ${this.file} from the example — edit it to match your setup.`);
+    if (!fs.existsSync(this.file) && this.example) {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(this.file, this.example);
+      this.created = true;
     }
     if (!fs.existsSync(this.file)) return deepMerge(DEFAULTS, {});
     try {

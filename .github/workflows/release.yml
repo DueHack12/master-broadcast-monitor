@@ -1,0 +1,118 @@
+# Releases, start to finish (same flow as OpenStatsEngine).
+#
+# Bump "version" in package.json on main and push: this creates the tag and the
+# GitHub release, builds the Windows .exe, the macOS .app and a Linux binary,
+# and attaches them. A version with a dash (0.2.0-beta1) is marked pre-release.
+# Release notes come from docs/releases/v<version>.md if it exists: its first
+# "# " line is the title, the rest is the body.
+#
+# Also runs for a release published by hand on GitHub, and from the Actions tab
+# (Run workflow, with a tag) to rebuild an existing release's apps.
+name: Build apps
+
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and attach to (e.g. v0.1.0)
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # A Mac, because the macOS app must be re-signed after packaging. The
+    # Windows and Linux builds are made on the same machine.
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || github.event.release.tag_name || inputs.tag }}
+
+      - name: Work out the release
+        id: rel
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="v$(node -p "require('./package.json').version")"
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "$TAG is already released; nothing to do."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            fi
+            echo "create=true" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release: $TAG"
+
+      - uses: actions/setup-node@v5
+        if: steps.rel.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: Test
+        if: steps.rel.outputs.skip != 'true'
+        run: npm test
+
+      - name: Package
+        if: steps.rel.outputs.skip != 'true'
+        run: node build/package.mjs all
+
+      - name: Smoke-test the packaged app
+        if: steps.rel.outputs.skip != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/bm" && cd "$RUNNER_TEMP/bm"
+          unzip -q "$GITHUB_WORKSPACE"/dist/*-macos.zip
+          APP="Broadcast Monitor.app"
+          test -f "$APP/Contents/Resources/icon.icns" || { echo "::error::The app has no icon"; exit 1; }
+          "./$APP/Contents/MacOS/bm-server" --port 8791 --no-open \
+            --config "$RUNNER_TEMP/bm-home/config.json" > "$RUNNER_TEMP/bm.log" 2>&1 &
+          SERVER=$!
+          for i in $(seq 30); do curl -sf localhost:8791/api/status >/dev/null && break; sleep 1; done
+          if ! curl -sf localhost:8791/api/status >/dev/null; then
+            echo "::error::The packaged app did not start"; cat "$RUNNER_TEMP/bm.log"; exit 1
+          fi
+          curl -sf localhost:8791/ | grep -q "Broadcast Monitor" || { echo "::error::Dashboard not served"; exit 1; }
+          test -f "$RUNNER_TEMP/bm-home/config.json" || { echo "::error::config.json was not created"; exit 1; }
+          kill $SERVER
+
+      - name: Create the release
+        if: steps.rel.outputs.skip != 'true' && steps.rel.outputs.create == 'true'
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
+        run: |
+          NOTES="docs/releases/$TAG.md"
+          if [ -f "$NOTES" ]; then
+            TITLE=$(grep -m1 '^# ' "$NOTES" | sed 's/^# //')
+            awk 'found{print} /^# /&&!found{found=1}' "$NOTES" > "$RUNNER_TEMP/notes.md"
+          else
+            TITLE="$TAG"
+            echo "Broadcast Monitor $TAG." > "$RUNNER_TEMP/notes.md"
+          fi
+          OLD=$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" | tail -1 | cut -f1)
+          if [ -n "$OLD" ] && [ "$OLD" != "${{ github.sha }}" ]; then
+            echo "::warning::Tag $TAG pointed at $OLD with no release; moving it to ${{ github.sha }}."
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$TAG"
+          fi
+          PRE=""
+          case "$TAG" in *-*) PRE="--prerelease" ;; esac
+          gh release create "$TAG" dist/BroadcastMonitor-* \
+            --target "${{ github.sha }}" --title "${TITLE:-$TAG}" --notes-file "$RUNNER_TEMP/notes.md" $PRE
+
+      - name: Attach to the release
+        if: steps.rel.outputs.skip != 'true' && steps.rel.outputs.create != 'true'
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
+        run: gh release upload "$TAG" dist/BroadcastMonitor-* --clobber

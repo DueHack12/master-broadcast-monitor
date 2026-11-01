@@ -8,10 +8,16 @@
     "start": "node server.js",
     "demo": "node tools/demo.js",
     "simulator": "node tools/simulator.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node build/package.mjs"
   },
   "engines": {
     "node": ">=18"
   },
-  "private": true
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DueHack12/master-broadcast-monitor.git"
+  }
 }

@@ -49,6 +49,7 @@
     renderCards(s.cards);
     renderLog(s.log);
     $('#station').textContent = s.station || 'Broadcast Monitor';
+    $('#log-note').textContent = `newest first · settings: ${s.settingsFile}`;
     const ch = s.notify.channels;
     $('#notify-info').textContent = ch.length ? `Phone alerts: ${ch.join(', ')}${s.notify.onlyWhenOnAir ? ' (when on air)' : ''}` : 'Phone alerts: off';
     alarm(s);

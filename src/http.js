@@ -1,10 +1,8 @@
 import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { detectSport, SPORTS } from './lib/sports.js';
+import { readAsset } from './runtime.js';
 
-const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json'
@@ -134,14 +132,17 @@ function readBody(req) {
   });
 }
 
+/** The dashboard files: from public/ in a checkout, from inside the executable when packaged. */
 function serveStatic(pathname, res) {
-  const rel = pathname === '/' ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
-  const file = path.resolve(PUBLIC, rel);
-  if (!file.startsWith(PUBLIC + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+  let rel = pathname === '/' ? 'index.html' : pathname;
+  try { rel = decodeURIComponent(rel); } catch { rel = ''; }
+  rel = path.posix.normalize('/' + rel).slice(1);
+  const body = rel && !rel.includes('..') ? readAsset(`public/${rel}`) : null;
+  if (!body) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');
     return;
   }
-  res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-  fs.createReadStream(file).pipe(res);
+  res.writeHead(200, { 'Content-Type': TYPES[path.extname(rel)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+  res.end(body);
 }
