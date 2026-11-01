@@ -21,7 +21,10 @@ function arg(name, fallback) {
   return i > -1 && argv[i + 1] ? argv[i + 1] : fallback;
 }
 
-if (packaged) process.title = 'Broadcast Monitor';
+// Names the console window on Windows. Not on macOS: there, setting the title
+// makes Node check the process in with LaunchServices as an app, and the
+// server gets its own bouncing "exec" icon in the Dock.
+if (packaged && process.platform === 'win32') process.title = 'Broadcast Monitor';
 
 /** A double-clicked app's window vanishes on exit; leave time to read why. */
 function fatal(msg) {

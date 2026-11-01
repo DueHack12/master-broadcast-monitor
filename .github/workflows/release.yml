@@ -86,6 +86,12 @@ jobs:
           fi
           curl -sf localhost:8791/ | grep -q "Broadcast Monitor" || { echo "::error::Dashboard not served"; exit 1; }
           test -f "$RUNNER_TEMP/bm-home/config.json" || { echo "::error::config.json was not created"; exit 1; }
+          # A server that checks itself in with LaunchServices bounces in the Dock.
+          echo "Apps registered with LaunchServices: $(lsappinfo list 2>/dev/null | grep -c 'ASN:')"
+          if lsappinfo list 2>/dev/null | grep -qi 'bm-server'; then
+            echo "::error::The server registered itself as a GUI app; it would show a bouncing icon in the Dock"
+            lsappinfo list | grep -i -A6 'bm-server'; exit 1
+          fi
           kill $SERVER
 
       - name: Create the release

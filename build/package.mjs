@@ -256,6 +256,8 @@ if (targets.includes('mac')) {
   <key>CFBundleIconFile</key><string>icon</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <!-- The launcher only opens Terminal and exits; nothing of ours belongs in the Dock. -->
+  <key>LSUIElement</key><true/>
 </dict>
 </plist>
 `);
