@@ -49,6 +49,7 @@
     renderCards(s.cards);
     renderLog(s.log);
     $('#station').textContent = s.station || 'Broadcast Monitor';
+    $('#welcome').hidden = !s.firstRun;
     $('#log-note').textContent = `newest first · settings: ${s.settingsFile}`;
     const ch = s.notify.channels;
     $('#notify-info').textContent = ch.length ? `Phone alerts: ${ch.join(', ')}${s.notify.onlyWhenOnAir ? ' (when on air)' : ''}` : 'Phone alerts: off';
@@ -157,7 +158,9 @@
     }
 
     setHTML($('.actions', el), (c.actions || []).map((a) => a.href
-      ? `<a class="btn ${esc(a.style || '')}" href="${esc(a.href)}" target="_blank" rel="noopener">${esc(a.label)} ↗</a>`
+      ? (a.href.startsWith('/')
+        ? `<a class="btn ${esc(a.style || '')}" href="${esc(a.href)}">${esc(a.label)}</a>`
+        : `<a class="btn ${esc(a.style || '')}" href="${esc(a.href)}" target="_blank" rel="noopener">${esc(a.label)} ↗</a>`)
       : `<button type="button" class="btn ${esc(a.style || '')}" data-post="${esc(a.post)}" data-body="${esc(JSON.stringify(a.body || {}))}"${a.confirm ? ` data-confirm="${esc(a.confirm)}"` : ''}>${esc(a.label)}</button>`).join(''));
   }
 

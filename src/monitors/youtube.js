@@ -228,7 +228,7 @@ export default class YouTubeMonitor extends Monitor {
   /* ---------------- device-flow sign-in ---------------- */
 
   async startAuth() {
-    if (!this.state.configured) throw new Error('Set youtube.clientId and youtube.clientSecret in config.json first (see README).');
+    if (!this.state.configured) throw new Error('Add your Google client ID and secret in Settings → YouTube first.');
     clearTimeout(this.authTimer);
     const json = await this.oauth('device/code', { client_id: this.cfg.clientId, scope: SCOPE });
     if (json.error) throw new Error(`Google: ${json.error_description || json.error}`);
@@ -297,7 +297,7 @@ export default class YouTubeMonitor extends Monitor {
   issues(ctx) {
     const s = this.state;
     const streaming = !!ctx.monitors.vmix?.state.streaming;
-    if (!s.configured) return [{ id: 'youtube.setup', level: streaming ? 'warn' : 'info', title: 'YouTube monitoring not set up', detail: 'Add a Google API client to config.json — see README.' }];
+    if (!s.configured) return [{ id: 'youtube.setup', level: streaming ? 'warn' : 'info', title: 'YouTube monitoring not set up', detail: 'Add your Google client ID and secret in Settings → YouTube.' }];
     if (!s.authed) return [{ id: 'youtube.auth', level: 'warn', title: 'YouTube not connected', detail: 'Press "Connect YouTube" on the YouTube card.' }];
     if (s.error && (this.isStale(ctx.now) || streaming)) {
       return [{ id: 'youtube.api', level: 'warn', title: "Can't check YouTube", detail: s.error }];
@@ -317,7 +317,8 @@ export default class YouTubeMonitor extends Monitor {
     if (!s.configured) {
       return {
         level: 'idle', status: 'Not set up',
-        notice: { text: 'Add a Google Cloud OAuth client ("TVs and Limited Input devices") to config.json → youtube.clientId / clientSecret. Step-by-step in the README.' }
+        notice: { text: 'Add your Google client ID and secret in Settings → YouTube. The setup guide walks through getting them from Google Cloud (about 10 minutes).' },
+        actions: [{ label: 'Open Settings', href: '/settings#youtube', style: 'primary' }, { label: 'Setup guide', href: 'https://github.com/DueHack12/master-broadcast-monitor#youtube' }]
       };
     }
     if (s.auth) {

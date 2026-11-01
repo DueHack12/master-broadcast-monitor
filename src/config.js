@@ -95,6 +95,16 @@ export function deepMerge(base, over) {
   return out;
 }
 
+function setPath(obj, dotted, value) {
+  const keys = dotted.split('.');
+  let o = obj;
+  for (const k of keys.slice(0, -1)) {
+    if (!isObj(o[k])) o[k] = {};
+    o = o[k];
+  }
+  o[keys[keys.length - 1]] = value;
+}
+
 export class ConfigStore extends EventEmitter {
   /**
    * @param file     config.json path
@@ -127,9 +137,33 @@ export class ConfigStore extends EventEmitter {
     }
   }
 
+  /**
+   * Save changes from the Settings page ({ 'audio.low.durationSec': 15, ... }).
+   * Merged into config.json as it stands, so anything hand-written there —
+   * "_help" notes, options the page does not show — survives. Applies at once.
+   */
+  update(flat) {
+    let raw = {};
+    if (fs.existsSync(this.file)) {
+      try { raw = JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch (e) {
+        throw new Error(`${path.basename(this.file)} has a typo (${e.message}). Fix or delete the file, then save again.`);
+      }
+    }
+    for (const [p, v] of Object.entries(flat)) setPath(raw, p, v);
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    const tmp = `${this.file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(raw, null, 2) + '\n');
+    fs.renameSync(tmp, this.file);
+    this.ownWrite = fs.statSync(this.file).mtimeMs; // the file watcher should not apply it a second time
+    this.error = null;
+    this.current = deepMerge(DEFAULTS, raw);
+    this.emit('change', this.current, 'settings');
+    return this.current;
+  }
+
   watch() {
     fs.watchFile(this.file, { interval: 1000 }, (cur, prev) => {
-      if (cur.mtimeMs === prev.mtimeMs) return;
+      if (cur.mtimeMs === prev.mtimeMs || cur.mtimeMs === this.ownWrite) return;
       const next = this._read();
       if (next) { this.current = next; this.emit('change', next); }
       else this.emit('error', this.error);

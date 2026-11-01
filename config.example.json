@@ -1,5 +1,5 @@
 {
-  "_help": "Copied to config.json on first start. Every option is explained in README.md. Saving this file applies it immediately.",
+  "_help": "Most of this can be changed on the dashboard's Settings page. Editing by hand works too: every option is explained in README.md, and saving this file applies it immediately.",
   "port": 8090,
   "publicUrl": "",
   "stationName": "Broadcast Monitor",

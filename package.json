@@ -1,6 +1,6 @@
 {
   "name": "broadcast-monitor",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "One-page monitor for a vMix → YouTube broadcast: stream chain, audio levels, Sportzcast Scorebot, OpenStatsEngine and NDI, with phone alerts",
   "type": "module",
   "main": "server.js",

@@ -33,11 +33,12 @@ Nothing else to install, not even Node.
   **Broadcast Monitor → Open** the first time.
 - **Linux:** `BroadcastMonitor-<version>-linux-x64.tar.gz`.
 
-A console window opens showing the dashboard addresses, and the dashboard opens
-in your browser. **Closing that window stops the monitor.** Double-clicking the
-app again while it's running just opens the dashboard.
+A console window opens showing the dashboard addresses. On first launch your
+browser opens the **Settings** page; fill in the gear you use and press Save.
+After that it opens the dashboard. **Closing that window stops the monitor.**
+Double-clicking the app again while it's running just opens the dashboard.
 
-Settings live in **`Documents\Broadcast Monitor\config.json`**, created on first
+Settings are stored in **`Documents\Broadcast Monitor\config.json`**, created on first
 start, with the `data` folder beside it. The path is printed in the console and
 shown at the bottom of the dashboard. If a `config.json` sits next to the
 `.exe`, that one is used instead, so a folder on a USB stick carries its own
@@ -67,9 +68,22 @@ source, `config.json` and `data/` live in the checkout.
   Network  : http://192.168.1.42:8090
 ```
 
-Open the **Network** address on any screen on the broadcast network. Edit
-`config.json` and save: the change applies immediately, with no restart. A typo
-is reported on the dashboard and the last good settings stay in use.
+Open the **Network** address on any screen on the broadcast network.
+
+### Settings
+
+Press **Settings** (top right of the dashboard) to set the vMix and ScoreConnect
+addresses, audio thresholds, NDI sources, YouTube and phone alerts. Changes
+apply as soon as you press Save, with no restart. The status bar stays across the
+top of the Settings page, so an alarm is never missed while you edit.
+
+- Passwords and keys (the Google client secret, Pushcut and webhook URLs, Twilio
+  token, MQTT password) can be entered or replaced, but are never shown back,
+  since anyone on the network can open the page.
+- Everything is stored in `config.json`, which you can also edit by hand. Saving
+  from the Settings page keeps anything you've added there yourself, and a few
+  rarer options, such as [alert overrides](#alert-ids), are only in the file. A
+  typo in the file is reported on the dashboard, and the last good settings stay in use.
 
 > Port 8090 is clear of vMix (8088, 8099), OpenStatsEngine (8080) and
 > ScoreConnect's MQTT (1883). Use `--port 9000` for another.
@@ -156,8 +170,7 @@ YouTube needs a free Google Cloud API client. This is a one-time job of about 10
    - **Data access:** add the scope `.../auth/youtube.readonly`.
 4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
    application type **TVs and Limited Input devices**.
-5. Copy the client ID and secret into `config.json` → `youtube.clientId` /
-   `youtube.clientSecret`.
+5. Paste the client ID and secret into **Settings → YouTube** and press Save.
 6. On the dashboard, press **Connect YouTube**. It shows a code; open
    google.com/device on any phone or computer, enter the code and sign in with
    the channel's account. The monitor never has to reach you back over the
@@ -288,9 +301,9 @@ Server** instead of mDNS won't show sources here.
 
 **Pushcut (easiest for iPhone).** In the Pushcut app: Notifications → **+** →
 name it (e.g. *Broadcast*) → open it → **Webhook** → copy the URL into
-`notify.pushcut.url`. Red alerts are sent as *Time Sensitive* so they break
-through Focus modes. Set `publicUrl` (e.g. `http://192.168.1.42:8090`) and
-tapping the notification opens the dashboard.
+**Settings → Phone alerts → Pushcut**. Red alerts are sent as *Time Sensitive* so
+they break through Focus modes. Fill in **Settings → General → Dashboard
+address**, which suggests one for you, and tapping a notification opens the dashboard.
 
 **SMS (Twilio).** Fill in the account SID, auth token, your Twilio number (or a
 Messaging Service SID starting `MG`) and the numbers to text. US carriers require
@@ -350,7 +363,10 @@ each monitor describes, so a new monitor needs no front-end changes.
    extending `Monitor` with `start()`, `stop()`, `issues(ctx)` and `view(ctx)`.
    `base.js` documents the card format (rows, lists, notices, buttons, a select).
 2. Add it to the list in `src/monitors/index.js`.
-3. Give it a config block: `"mything": { "enabled": true, ... }`.
+3. Give it a config block: `"mything": { "enabled": true, ... }` (defaults go in
+   `src/config.js`).
+4. To make its options editable on the Settings page, add a section to
+   `public/settings-schema.js`. The page and the server's validation both come from it.
 
 `ctx.monitors` gives access to the others (e.g. `ctx.monitors.vmix.state.data`),
 so a new check can build on data already being collected.
@@ -367,7 +383,8 @@ src/rules.js             vMix → YouTube → LIVE stream-chain rules
 src/notify.js            Pushcut / Twilio / webhook
 src/monitors/*.js        one per thing watched
 src/lib/*.js             vMix XML, MQTT, mDNS, ping, audio detection, sports
-public/                  the dashboard (plain HTML/CSS/JS)
+public/                  the dashboard and Settings page (plain HTML/CSS/JS)
+public/settings-schema.js  Settings fields + validation, shared by page and server
 tools/simulator.js       fake equipment for testing and demos
 build/package.mjs        builds the .exe / .app / Linux binary
 data/                    YouTube sign-in, dashboard settings, events.jsonl log
@@ -398,7 +415,8 @@ from standby → preview → live → failures → YouTube sign-in.
 ## Notes and limits
 
 - No login: it is meant for a closed broadcast network. Anyone who can open the
-  page can change *Today's sport*, connect/disconnect YouTube and send a test alert.
+  page can change settings and *Today's sport*, connect or disconnect YouTube, and
+  send a test alert. Saved passwords and keys are never shown back, but they can be replaced.
 - vMix's API doesn't report RTMP bitrate or dropped frames, so stream health
   comes from YouTube's side (`healthStatus` and configuration issues).
 - YouTube data is up to `pollOnAirSec` (15 s) old, which is why the

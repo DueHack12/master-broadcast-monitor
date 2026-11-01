@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f14">
+  <title>Settings — Broadcast Monitor</title>
+  <link rel="icon" href="/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="settings-page">
+  <header id="mini" class="mini lvl-stale">
+    <a class="back" href="/">← Dashboard</a>
+    <span class="mini-dot" aria-hidden="true"></span>
+    <span id="mini-text" class="mini-text">Connecting…</span>
+  </header>
+
+  <main class="settings">
+    <h1>Settings</h1>
+    <p class="muted">Saved to <code id="file">config.json</code> — changes apply the moment you press Save.</p>
+
+    <div id="welcome" class="notice welcome-note" hidden>
+      <strong>Welcome!</strong> Fill in the gear you use, switch off what you don't, and press <strong>Save</strong>.
+      You can come back and change anything later.
+    </div>
+    <div id="config-error" class="notice error-note" hidden></div>
+
+    <nav id="toc" class="toc" aria-label="Sections"></nav>
+    <form id="form" novalidate autocomplete="off"></form>
+  </main>
+
+  <div class="savebar">
+    <span id="dirty" class="muted">No changes</span>
+    <span class="spacer"></span>
+    <button type="button" id="revert" class="btn subtle" disabled>Undo changes</button>
+    <button type="button" id="save" class="btn primary" disabled>Save</button>
+  </div>
+
+  <datalist id="dl-vmix"></datalist>
+  <datalist id="dl-ndi"></datalist>
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="/settings.js"></script>
+</body>
+</html>

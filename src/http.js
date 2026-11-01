@@ -1,6 +1,8 @@
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { detectSport, SPORTS } from './lib/sports.js';
+import { FIELDS, isSecret, getPath, validate } from '../public/settings-schema.js';
 import { readAsset } from './runtime.js';
 
 const TYPES = {
@@ -81,7 +83,18 @@ export function createServer(app) {
     'POST /api/youtube/auth/logout': () => { yt(app).logout(); return { ok: true }; },
     'POST /api/youtube/refresh': () => { yt(app).schedule(0); return { ok: true }; },
 
-    'POST /api/notify/test': () => app.notifier.test()
+    'POST /api/notify/test': () => app.notifier.test(),
+
+    /** The Settings page: current values (secrets never sent back, only whether they are set). */
+    'GET /api/config': (req) => configPayload(app, req.socket.localPort),
+
+    'POST /api/config': (req, res, body) => {
+      const { values, errors } = validate(body.values);
+      if (Object.keys(errors).length) { sendJson(res, 400, { error: 'Some settings need fixing.', errors }); return undefined; }
+      if (!Object.keys(values).length) return { ok: true, changed: 0 };
+      try { app.config.update(values); } catch (e) { throw httpError(409, e.message); }
+      return { ok: true, changed: Object.keys(values).length };
+    }
   };
 
   const server = http.createServer(async (req, res) => {
@@ -104,6 +117,31 @@ export function createServer(app) {
   const close = server.close.bind(server);
   server.close = (cb) => { for (const res of clients) res.end(); clients.clear(); return close(cb); };
   return server;
+}
+
+function configPayload(app, port) {
+  const values = {}, secretsSet = {};
+  for (const f of FIELDS) {
+    const v = getPath(app.cfg, f.path);
+    if (isSecret(f)) { secretsSet[f.path] = !!v; values[f.path] = ''; } else values[f.path] = v;
+  }
+  let ip = null;
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const a of list || []) if (!ip && (a.family === 'IPv4' || a.family === 4) && !a.internal) ip = a.address;
+  }
+  const vm = app.monitors.vmix?.state.data;
+  const ndi = app.monitors.ndi;
+  return {
+    values, secretsSet,
+    file: app.config.file,
+    configError: app.config.error,
+    firstRun: app.firstRun,
+    hints: {
+      publicUrl: ip ? `http://${ip}:${port}` : '',
+      vmixInputs: vm ? vm.inputs.map((i) => i.title).filter(Boolean) : [],
+      ndiSources: ndi ? ndi.online(Date.now()).map((s) => s.name) : []
+    }
+  };
 }
 
 function yt(app) {
@@ -137,7 +175,8 @@ function serveStatic(pathname, res) {
   let rel = pathname === '/' ? 'index.html' : pathname;
   try { rel = decodeURIComponent(rel); } catch { rel = ''; }
   rel = path.posix.normalize('/' + rel).slice(1);
-  const body = rel && !rel.includes('..') ? readAsset(`public/${rel}`) : null;
+  let body = rel && !rel.includes('..') ? readAsset(`public/${rel}`) : null;
+  if (!body && rel && !path.extname(rel) && !rel.includes('..')) { body = readAsset(`public/${rel}.html`); if (body) rel += '.html'; }
   if (!body) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');

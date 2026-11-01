@@ -63,10 +63,10 @@ if (config) {
         if ((a.family === 'IPv4' || a.family === 4) && !a.internal) console.log(`  Network  : http://${a.address}:${port}`);
       }
     }
-    console.log(`\n  Settings : ${configFile}${config.created ? '   (new — edit it to match your setup)' : ''}`);
+    console.log(`\n  Settings : ${configFile}${config.created ? "   (new — set it up on the dashboard's Settings page)" : ''}`);
     console.log(`  Data     : ${dataDir}`);
     console.log(packaged ? '\n  Close this window to stop the monitor.\n' : '\n  Ctrl+C to stop.\n');
-    if (OPEN) openExternal(`http://localhost:${port}/`);
+    if (OPEN) openExternal(`http://localhost:${port}/${config.created ? 'settings' : ''}`);
   });
 
   server.on('error', (e) => {

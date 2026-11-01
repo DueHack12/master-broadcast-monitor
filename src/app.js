@@ -28,14 +28,16 @@ export class App extends EventEmitter {
     this.onAir = false;
     this.notifier = new Notifier(this);
     this.snapshot = null;
+    this.firstRun = !!config.created; // until settings are saved once
   }
 
   get cfg() { return this.config.current; }
 
   start() {
     this.startMonitors();
-    this.config.on('change', () => {
-      this.log.add('info', 'config.json changed — monitors restarted with the new settings', 'system');
+    this.config.on('change', (next, source) => {
+      if (source === 'settings') this.firstRun = false;
+      this.log.add('info', source === 'settings' ? 'Settings saved — applied' : 'config.json changed — monitors restarted with the new settings', 'system');
       this.restart();
     });
     this.config.on('error', (msg) => { this.log.add('warn', `config.json not applied: ${msg}`, 'system'); this.changed(); });
@@ -65,7 +67,7 @@ export class App extends EventEmitter {
     this.stopMonitors();
     this.notifier.configure(this.cfg);
     this.startMonitors();
-    this.changed();
+    this.flush(); // the dashboard and API reflect the new settings straight away
   }
 
   stop() {
@@ -161,7 +163,8 @@ export class App extends EventEmitter {
       cards,
       log: this.log.recent(50),
       notify: { channels: this.notifier.enabledChannels(), onlyWhenOnAir: !!this.cfg.notify?.onlyWhenOnAir },
-      settingsFile: this.config.file
+      settingsFile: this.config.file,
+      firstRun: this.firstRun
     };
   }
 
