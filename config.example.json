@@ -1,0 +1,70 @@
+{
+  "_help": "Copied to config.json on first start. Every option is explained in README.md. Saving this file applies it immediately.",
+  "port": 8090,
+  "publicUrl": "",
+  "stationName": "Broadcast Monitor",
+
+  "alerts": {
+    "_help": "Change any alert's level: crit, warn, info or off. Wildcards allowed, e.g. \"scorebot.*\": \"crit\".",
+    "overrides": {}
+  },
+
+  "vmix": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8088,
+    "pollMs": 250,
+    "youtubeChannels": [1, 2, 3]
+  },
+
+  "audio": {
+    "enabled": true,
+    "onlyWhenOnAir": true,
+    "clip": { "thresholdDb": -1, "windowSec": 10, "minHits": 3 },
+    "low": { "thresholdDb": -50, "durationSec": 10 },
+    "sources": [
+      { "label": "Program (Master)", "bus": "master", "mutedLevel": "crit" }
+    ]
+  },
+
+  "youtube": {
+    "enabled": true,
+    "clientId": "",
+    "clientSecret": "",
+    "pollOnAirSec": 15,
+    "pollIdleSec": 180,
+    "ingestGraceSec": 45,
+    "notLiveGraceSec": 0,
+    "showViewers": true
+  },
+
+  "scorebot": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "ping": { "enabled": true, "intervalSec": 5, "timeoutMs": 1000, "failuresBeforeDown": 2 },
+    "mqtt": { "port": 1883, "topic": "bot/0/json", "username": "", "password": "" },
+    "silentAfterSec": 5,
+    "vendorSportIds": { "23": "soccer" }
+  },
+
+  "ose": {
+    "enabled": true,
+    "url": "http://127.0.0.1:8080",
+    "required": false
+  },
+
+  "ndi": {
+    "enabled": true,
+    "expected": []
+  },
+
+  "notify": {
+    "onlyWhenOnAir": true,
+    "persistSec": 5,
+    "repeatAfterMin": 5,
+    "recovery": true,
+    "pushcut": { "enabled": false, "url": "", "minLevel": "warn", "timeSensitiveLevel": "crit" },
+    "twilio": { "enabled": false, "accountSid": "", "authToken": "", "from": "", "to": [], "minLevel": "crit" },
+    "webhook": { "enabled": false, "url": "", "minLevel": "warn" }
+  }
+}

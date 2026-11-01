@@ -1,0 +1,28 @@
+{
+  "_help": "Used by `npm run demo`. Points every monitor at the simulator in tools/simulator.js.",
+  "port": 8090,
+  "stationName": "Demo — Simulator",
+  "vmix": { "host": "127.0.0.1", "port": 18088 },
+  "audio": {
+    "sources": [
+      { "label": "Program (Master)", "bus": "master", "mutedLevel": "crit" },
+      { "label": "Commentary mic", "input": "Mic 1" }
+    ]
+  },
+  "youtube": {
+    "clientId": "demo-client",
+    "clientSecret": "demo-secret",
+    "apiBase": "http://127.0.0.1:18443",
+    "oauthBase": "http://127.0.0.1:18443",
+    "pollOnAirSec": 3,
+    "pollIdleSec": 5,
+    "ingestGraceSec": 20
+  },
+  "scorebot": {
+    "host": "127.0.0.1",
+    "mqtt": { "port": 11883, "topic": "bot/0/json" }
+  },
+  "ose": { "url": "http://127.0.0.1:18080" },
+  "ndi": { "expected": ["vMix - Output 1", "Camera 1", "Camera 2"], "scanIntervalSec": 3, "goneAfterSec": 8 },
+  "notify": { "onlyWhenOnAir": true }
+}

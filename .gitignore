@@ -1,0 +1,11 @@
+# Local settings and secrets (YouTube client secret, Twilio token, Pushcut URL)
+config.json
+
+# Runtime data: YouTube sign-in token, dashboard settings, event log
+/data/
+/data-demo/
+
+node_modules/
+.DS_Store
+*.tmp
+.claude/
