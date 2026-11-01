@@ -11,6 +11,7 @@
 import http from 'node:http';
 import net from 'node:net';
 import dgram from 'node:dgram';
+import { createHash } from 'node:crypto';
 import { packet } from '../src/lib/mqtt.js';
 import { MDNS_ADDR, MDNS_PORT, NDI_SERVICE, parsePacket } from '../src/lib/mdns.js';
 
@@ -126,16 +127,54 @@ function ytStream() {
   };
 }
 let deviceRequestedAt = 0;
+// The fake Google account manages two channels, like a personal channel plus a Brand Account.
+export const SIM_CHANNELS = { personal: 'Jack (personal)', brand: 'Demo Sports Network' };
+const issuedCodes = new Map(); // code → { channel, challenge, redirectUri }
+const chanOf = (token) => (String(token || '').match(/^demo-(personal|brand)-/) || [])[1] || 'brand';
+
+function googleChooser(url) {
+  const q = url.searchParams;
+  const link = (key) => `/o/oauth2/v2/auth/choose?${new URLSearchParams({ channel: key, redirect_uri: q.get('redirect_uri'), state: q.get('state') || '', code_challenge: q.get('code_challenge') || '' })}`;
+  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Choose a channel (simulated Google)</title>
+<style>body{font:16px system-ui;max-width:420px;margin:60px auto;padding:0 16px}a{display:block;padding:14px;margin:10px 0;border:1px solid #ccc;border-radius:10px;color:#111;text-decoration:none}a:hover{background:#f3f4f6}</style>
+<h2>Choose an account or brand account</h2><p>Simulated Google sign-in. Pick the channel Broadcast Monitor should watch:</p>
+${Object.entries(SIM_CHANNELS).map(([k, name]) => `<a id="pick-${k}" href="${link(k)}">${name}</a>`).join('')}
+<a id="pick-cancel" href="${q.get('redirect_uri')}?error=access_denied&state=${encodeURIComponent(q.get('state') || '')}">Cancel</a>`;
+}
+
 function youtubeHandler(req, res, body) {
   const url = new URL(req.url, 'http://x');
   const json = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+  if (req.method === 'GET' && url.pathname === '/o/oauth2/v2/auth') {
+    if (!url.searchParams.get('redirect_uri') || url.searchParams.get('code_challenge_method') !== 'S256') return json(400, { error: 'invalid_request' });
+    res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(googleChooser(url)); return;
+  }
+  if (req.method === 'GET' && url.pathname === '/o/oauth2/v2/auth/choose') {
+    const q = url.searchParams;
+    const code = `code-${Math.random().toString(36).slice(2)}`;
+    issuedCodes.set(code, { channel: q.get('channel'), challenge: q.get('code_challenge'), redirectUri: q.get('redirect_uri') });
+    res.writeHead(302, { Location: `${q.get('redirect_uri')}?${new URLSearchParams({ state: q.get('state'), code, scope: 'https://www.googleapis.com/auth/youtube.readonly' })}` });
+    res.end(); return;
+  }
   if (req.method === 'POST' && url.pathname === '/device/code') {
     deviceRequestedAt = Date.now();
     return json(200, { device_code: 'demo-device', user_code: 'BCST-DEMO', verification_url: 'https://www.google.com/device', expires_in: 1800, interval: 1 });
   }
   if (req.method === 'POST' && url.pathname === '/token') {
     const f = new URLSearchParams(body);
-    if (f.get('grant_type') === 'refresh_token') return json(200, { access_token: `demo-${Date.now()}`, expires_in: 3600 });
+    if (f.get('grant_type') === 'refresh_token') {
+      const k = (/^demo-refresh-(personal|brand)$/.exec(f.get('refresh_token')) || [])[1] || 'brand';
+      return json(200, { access_token: `demo-${k}-${Date.now()}`, expires_in: 3600 });
+    }
+    if (f.get('grant_type') === 'authorization_code') {
+      const c = issuedCodes.get(f.get('code'));
+      if (!c) return json(400, { error: 'invalid_grant', error_description: 'Bad or used code.' });
+      issuedCodes.delete(f.get('code'));
+      const challenge = createHash('sha256').update(f.get('code_verifier') || '').digest('base64url');
+      if (challenge !== c.challenge) return json(400, { error: 'invalid_grant', error_description: 'PKCE check failed.' });
+      if (f.get('redirect_uri') !== c.redirectUri) return json(400, { error: 'redirect_uri_mismatch' });
+      return json(200, { access_token: `demo-${c.channel}-${Date.now()}`, refresh_token: `demo-refresh-${c.channel}`, expires_in: 3600 });
+    }
     if (Date.now() - deviceRequestedAt < sim.youtube.authApprovedAfterMs) return json(428, { error: 'authorization_pending' });
     return json(200, { access_token: `demo-${Date.now()}`, refresh_token: 'demo-refresh', expires_in: 3600 });
   }
@@ -150,7 +189,10 @@ function youtubeHandler(req, res, body) {
   }
   if (url.pathname === '/youtube/v3/liveStreams') return json(200, { items: [ytStream()] });
   if (url.pathname === '/youtube/v3/videos') return json(200, { items: [{ id: 'demoBroadcast01', liveStreamingDetails: { concurrentViewers: String(380 + Math.floor(Math.random() * 40)) } }] });
-  if (url.pathname === '/youtube/v3/channels') return json(200, { items: [{ snippet: { title: 'Demo Sports Network' } }] });
+  if (url.pathname === '/youtube/v3/channels') {
+    const k = chanOf(req.headers.authorization.replace('Bearer ', ''));
+    return json(200, { items: [{ id: `UC-${k}`, snippet: { title: SIM_CHANNELS[k] } }] });
+  }
   return json(404, { error: { message: 'not found' } });
 }
 

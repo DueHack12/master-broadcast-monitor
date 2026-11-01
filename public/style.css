@@ -326,3 +326,11 @@ details.more[open] { display: grid; gap: 16px; }
   .field select { max-width: none; }
   .checks { gap: 14px; }
 }
+
+/* inline text form on a card (e.g. paste the Google sign-in address) */
+.inline-form { display: flex; align-items: flex-end; gap: 8px; width: 100%; flex-wrap: wrap; }
+.inline-form label { flex: 1; min-width: 220px; }
+.inline-form input {
+  font: inherit; font-size: 14px; color: var(--text); width: 100%;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}

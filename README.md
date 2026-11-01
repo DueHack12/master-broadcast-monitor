@@ -169,12 +169,23 @@ YouTube needs a free Google Cloud API client. This is a one-time job of about 10
      app" screen when you sign in. Click **Advanced → Go to Broadcast Monitor**.
    - **Data access:** add the scope `.../auth/youtube.readonly`.
 4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
-   application type **TVs and Limited Input devices**.
-5. Paste the client ID and secret into **Settings → YouTube** and press Save.
-6. On the dashboard, press **Connect YouTube**. It shows a code; open
-   google.com/device on any phone or computer, enter the code and sign in with
-   the channel's account. The monitor never has to reach you back over the
-   network, which is why this works on a closed LAN.
+   application type **Desktop app**.
+5. In **Settings → YouTube**, set the client type to *Desktop app*, paste the
+   client ID and secret, and press Save.
+6. On the dashboard, press **Sign in & choose channel**. Google opens in a new
+   tab: pick the Google account, then **the channel**. Brand Account channels
+   are listed there too. You come back to the dashboard, and the YouTube card
+   shows which channel is connected. **Switch channel** on the card repeats this
+   at any time.
+   - Google can only send you back to the computer Broadcast Monitor runs on.
+     If you sign in from another device, the Google tab ends on a "can't
+     connect" page. That's expected: copy that page's full address and paste
+     it into the box on the YouTube card.
+
+**Signing in with a code instead.** Choose **TVs and Limited Input devices** as
+the client type (in Google Cloud and in Settings). The card then shows a short
+code to enter at google.com/device on any phone. This picks a Google account but
+not a channel, so it only suits accounts with a single channel.
 
 The sign-in is saved in `data/youtube-token.json` (keep it private; it's in
 `.gitignore`).

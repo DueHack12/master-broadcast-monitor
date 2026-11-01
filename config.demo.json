@@ -10,10 +10,12 @@
     ]
   },
   "youtube": {
+    "clientType": "desktop",
     "clientId": "demo-client",
     "clientSecret": "demo-secret",
     "apiBase": "http://127.0.0.1:18443",
     "oauthBase": "http://127.0.0.1:18443",
+    "authBase": "http://127.0.0.1:18443/o/oauth2/v2/auth",
     "pollOnAirSec": 3,
     "pollIdleSec": 5,
     "ingestGraceSec": 20

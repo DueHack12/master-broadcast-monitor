@@ -29,6 +29,7 @@
 
   "youtube": {
     "enabled": true,
+    "clientType": "desktop",
     "clientId": "",
     "clientSecret": "",
     "pollOnAirSec": 15,

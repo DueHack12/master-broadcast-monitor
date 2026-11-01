@@ -152,13 +152,15 @@
 
     const controls = $('.controls', el);
     if (!controls.contains(document.activeElement)) {
-      setHTML(controls, (c.controls || []).map((k) => k.type === 'select'
-        ? `<label>${esc(k.label)}<select data-post="${esc(k.post)}" data-name="${esc(k.name)}">${k.options.map((o) => `<option value="${esc(o.value)}"${o.value === k.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>`
-        : '').join(''));
+      setHTML(controls, (c.controls || []).map((k) => {
+        if (k.type === 'select') return `<label>${esc(k.label)}<select data-post="${esc(k.post)}" data-name="${esc(k.name)}">${k.options.map((o) => `<option value="${esc(o.value)}"${o.value === k.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>`;
+        if (k.type === 'input') return `<form class="inline-form" data-post="${esc(k.post)}" data-name="${esc(k.name)}"><label>${esc(k.label)}<input type="text" placeholder="${esc(k.placeholder || '')}" spellcheck="false" autocomplete="off"></label><button type="submit" class="btn primary">${esc(k.button || 'Send')}</button></form>`;
+        return '';
+      }).join(''));
     }
 
     setHTML($('.actions', el), (c.actions || []).map((a) => a.href
-      ? (a.href.startsWith('/')
+      ? (a.href.startsWith('/') && !a.newTab
         ? `<a class="btn ${esc(a.style || '')}" href="${esc(a.href)}">${esc(a.label)}</a>`
         : `<a class="btn ${esc(a.style || '')}" href="${esc(a.href)}" target="_blank" rel="noopener">${esc(a.label)} ↗</a>`)
       : `<button type="button" class="btn ${esc(a.style || '')}" data-post="${esc(a.post)}" data-body="${esc(JSON.stringify(a.body || {}))}"${a.confirm ? ` data-confirm="${esc(a.confirm)}"` : ''}>${esc(a.label)}</button>`).join(''));
@@ -236,6 +238,21 @@
     if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
     b.disabled = true;
     try { await post(b.dataset.post, JSON.parse(b.dataset.body || '{}')); } catch (err) { toast(err.message); } finally { b.disabled = false; }
+  });
+
+  document.addEventListener('submit', async (e) => {
+    const f = e.target.closest('form[data-post]');
+    if (!f) return;
+    e.preventDefault();
+    const input = f.querySelector('input');
+    const btn = f.querySelector('button');
+    btn.disabled = true;
+    try {
+      const r = await post(f.dataset.post, { [f.dataset.name]: input.value });
+      input.value = '';
+      input.blur();
+      toast(r.channel ? `Connected to "${r.channel}"` : 'Done');
+    } catch (err) { toast(err.message); } finally { btn.disabled = false; }
   });
 
   document.addEventListener('change', async (e) => {

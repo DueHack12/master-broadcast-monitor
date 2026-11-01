@@ -79,6 +79,27 @@ export function createServer(app) {
     },
 
     'POST /api/youtube/auth/start': async () => { await yt(app).startAuth(); return { ok: true }; },
+
+    /* Browser sign-in, where you choose the channel: off to Google, and back. */
+    'GET /oauth/youtube/start': (req, res) => {
+      let url;
+      try { url = yt(app).startBrowserAuth(req.socket.localPort); } catch (e) { return sendPage(res, 400, 'Can\'t sign in yet', e.message); }
+      res.writeHead(302, { Location: url, 'Cache-Control': 'no-store' });
+      res.end();
+      return undefined;
+    },
+    'GET /oauth/youtube': async (req, res) => {
+      const q = new URL(req.url, 'http://x').searchParams;
+      try {
+        const channel = await yt(app).finishBrowserAuth({ code: q.get('code'), state: q.get('state'), error: q.get('error') });
+        return sendPage(res, 200, 'YouTube connected', channel ? `Connected to the channel "${channel}".` : 'Connected.', true);
+      } catch (e) {
+        return sendPage(res, 400, 'Sign-in didn\'t finish', e.message);
+      }
+    },
+    'POST /api/youtube/auth/code': async (req, res, body) => {
+      try { return { ok: true, channel: await yt(app).finishFromPastedUrl(body.url) }; } catch (e) { throw httpError(400, e.message); }
+    },
     'POST /api/youtube/auth/cancel': () => { yt(app).cancelAuth(); return { ok: true }; },
     'POST /api/youtube/auth/logout': () => { yt(app).logout(); return { ok: true }; },
     'POST /api/youtube/refresh': () => { yt(app).schedule(0); return { ok: true }; },
@@ -148,6 +169,19 @@ function yt(app) {
   const m = app.monitors.youtube;
   if (!m) throw httpError(400, 'YouTube monitoring is disabled in config.json');
   return m;
+}
+
+/** A small standalone page for the end of browser sign-in. */
+function sendPage(res, status, title, message, ok = false) {
+  const e = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${e(title)} — Broadcast Monitor</title><link rel="stylesheet" href="/style.css">${ok ? '<meta http-equiv="refresh" content="4;url=/">' : ''}</head>
+<body><main class="settings"><div class="card setting-card ${ok ? 'lvl-ok' : 'lvl-warn'}" style="border-top-width:4px">
+<h1 style="margin-top:0">${ok ? '✔ ' : ''}${e(title)}</h1><p>${e(message)}</p>
+<p class="muted">${ok ? 'Taking you to the dashboard… You can also close this tab.' : 'Go back to the dashboard and try again.'}</p>
+<p><a class="btn primary" href="/">Open the dashboard</a></p></div></main></body></html>`);
+  return undefined;
 }
 
 function httpError(status, message) { const e = new Error(message); e.status = status; return e; }

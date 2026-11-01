@@ -36,8 +36,16 @@ export const SECTIONS = [
     id: 'youtube', title: 'YouTube', toggle: 'youtube.enabled',
     guide: 'https://github.com/DueHack12/master-broadcast-monitor#youtube',
     fields: [
+      {
+        path: 'youtube.clientType', label: 'Google client type', type: 'select',
+        options: [
+          { value: 'desktop', label: 'Desktop app: sign in and choose a channel (recommended)' },
+          { value: 'tv', label: 'TVs and Limited Input devices: enter a code on any phone (account only)' }
+        ],
+        help: 'Must match the type you picked when creating the client in Google Cloud. Choose "Desktop app" if the account has more than one channel (e.g. a Brand Account).'
+      },
       { path: 'youtube.clientId', label: 'Google client ID', type: 'text', optional: true, max: 200 },
-      { path: 'youtube.clientSecret', label: 'Google client secret', type: 'secret', optional: true, help: 'From Google Cloud → Credentials, type "TVs and Limited Input devices". After saving, press Connect YouTube on the dashboard.' },
+      { path: 'youtube.clientSecret', label: 'Google client secret', type: 'secret', optional: true, help: 'From Google Cloud → Credentials. After saving, sign in on the dashboard\'s YouTube card.' },
       { path: 'youtube.ingestGraceSec', label: 'Seconds before "YouTube isn\'t receiving" turns red', type: 'number', min: 10, max: 300 },
       { path: 'youtube.notLiveGraceSec', label: 'Seconds before "NOT LIVE — press Go Live" turns red', type: 'number', min: 0, max: 3600, help: '0 = as soon as YouTube is receiving. Raise it if you stream a preview for a while before going live.' },
       { path: 'youtube.showViewers', label: 'Show viewer count', type: 'bool' }

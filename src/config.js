@@ -47,8 +47,11 @@ export const DEFAULTS = {
     notLiveGraceSec: 0,
     broadcastId: '',
     showViewers: true,
+    // "desktop": browser sign-in, lets you choose the channel. "tv": code on any phone (account only).
+    clientType: 'tv',
     apiBase: 'https://www.googleapis.com',
-    oauthBase: 'https://oauth2.googleapis.com'
+    oauthBase: 'https://oauth2.googleapis.com',
+    authBase: 'https://accounts.google.com/o/oauth2/v2/auth'
   },
   scorebot: {
     enabled: true,

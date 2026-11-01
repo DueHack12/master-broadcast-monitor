@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { Monitor } from './base.js';
 import { readJson, writeJson } from '../store.js';
 import { fmtAgo } from '../levels.js';
@@ -11,9 +12,15 @@ import { fmtAgo } from '../levels.js';
  *   liveStreams.list     → is YouTube actually receiving our feed, and how healthy is it?
  *   videos.list          → concurrent viewers (optional)
  *
- * Sign-in uses Google's device flow: the dashboard shows a short code, you
- * enter it at google.com/device on any phone or laptop. That works on a
- * locked-down LAN where an OAuth redirect back to this server would not.
+ * Two ways to sign in, matching the type of OAuth client made in Google Cloud:
+ *
+ *   desktop  Google's normal browser sign-in, where you pick the account AND
+ *            the channel (Brand Account channels included). Google sends the
+ *            browser back to http://127.0.0.1:<port>/oauth/youtube, which only
+ *            works on the Broadcast Monitor computer — from any other device,
+ *            the address of the page Google lands on is pasted into the dashboard.
+ *   tv       Google's device flow: enter a short code at google.com/device on
+ *            any phone. Simple, but picks an account only, not a channel.
  *
  * Quota: 2–3 units per poll. Polls every `pollOnAirSec` while vMix is
  * streaming or a broadcast is live, every `pollIdleSec` otherwise — a 3-hour
@@ -266,7 +273,81 @@ export default class YouTubeMonitor extends Monitor {
     this.authTimer = setTimeout(pollAuth, auth.interval);
   }
 
-  cancelAuth() { clearTimeout(this.authTimer); this.set({ auth: null }); }
+  cancelAuth() { clearTimeout(this.authTimer); this.browserAuth = null; this.set({ auth: null }); }
+
+  /* ---------------- browser sign-in (choose a channel) ---------------- */
+
+  /**
+   * Start Google's authorization-code sign-in (with PKCE) and return the URL
+   * to send the browser to. `port` is the port this server is listening on.
+   */
+  startBrowserAuth(port) {
+    if (!this.state.configured) throw new Error('Add your Google client ID and secret in Settings → YouTube first.');
+    clearTimeout(this.authTimer);
+    const b64 = (buf) => buf.toString('base64url');
+    const verifier = b64(crypto.randomBytes(32));
+    const auth = {
+      state: b64(crypto.randomBytes(16)),
+      verifier,
+      redirectUri: `http://127.0.0.1:${port}/oauth/youtube`,
+      expiresAt: Date.now() + 15 * 60000
+    };
+    this.browserAuth = auth;
+    this.set({ auth: { mode: 'browser', expiresAt: auth.expiresAt, redirectUri: auth.redirectUri } });
+    const q = new URLSearchParams({
+      client_id: this.cfg.clientId,
+      redirect_uri: auth.redirectUri,
+      response_type: 'code',
+      scope: SCOPE,
+      access_type: 'offline',
+      // Always show the account chooser and consent, so a channel can be picked
+      // and Google issues a long-lived sign-in even if it has seen this app before.
+      prompt: 'select_account consent',
+      state: auth.state,
+      code_challenge: b64(crypto.createHash('sha256').update(verifier).digest()),
+      code_challenge_method: 'S256'
+    });
+    return `${this.cfg.authBase}?${q}`;
+  }
+
+  /** Finish browser sign-in from Google's redirect (or a pasted copy of its address). */
+  async finishBrowserAuth({ code, state, error }) {
+    const p = this.browserAuth;
+    if (error) {
+      this.browserAuth = null;
+      this.set({ auth: null });
+      throw new Error(error === 'access_denied' ? 'Sign-in was cancelled.' : `Google said: ${error}`);
+    }
+    if (!p || Date.now() > p.expiresAt) { this.set({ auth: null }); throw new Error('This sign-in has expired. Start again from the dashboard.'); }
+    if (!code || state !== p.state) throw new Error("That sign-in link doesn't belong to the current attempt. Start again from the dashboard.");
+    const r = await this.oauth('token', {
+      code, client_id: this.cfg.clientId, client_secret: this.cfg.clientSecret,
+      redirect_uri: p.redirectUri, grant_type: 'authorization_code', code_verifier: p.verifier
+    });
+    if (r.error) {
+      const hint = r.error === 'invalid_client' || r.error === 'unauthorized_client'
+        ? ' Check the client in Settings → YouTube is a "Desktop app" client.' : '';
+      throw new Error(`Google: ${r.error_description || r.error}.${hint}`);
+    }
+    if (!r.refresh_token) throw new Error('Google did not issue a lasting sign-in. Remove Broadcast Monitor at myaccount.google.com/permissions, then sign in again.');
+    this.browserAuth = null;
+    this.token = { refresh_token: r.refresh_token, access_token: r.access_token, expires_at: Date.now() + (r.expires_in || 3600) * 1000 };
+    this.saveToken();
+    this.set({ auth: null, authed: true, error: null, broadcast: null, stream: null, viewers: null });
+    await this.loadChannel();
+    this.app.log.add('info', `YouTube connected${this.state.channel ? ` to channel "${this.state.channel}"` : ''}`, this.id);
+    this.schedule(100);
+    return this.state.channel;
+  }
+
+  /** Parse the address Google redirected to, pasted from a browser on another device. */
+  async finishFromPastedUrl(text) {
+    const s = String(text || '').trim();
+    let params;
+    try { params = new URL(s).searchParams; } catch { params = new URLSearchParams(s.replace(/^[^?]*\?/, '')); }
+    if (!params.get('code') && !params.get('error')) throw new Error('Paste the whole address from the browser (it contains "code=").');
+    return this.finishBrowserAuth({ code: params.get('code'), state: params.get('state'), error: params.get('error') });
+  }
 
   logout() {
     clearTimeout(this.authTimer);
@@ -281,6 +362,7 @@ export default class YouTubeMonitor extends Monitor {
       const j = await this.api('channels', { part: 'snippet', mine: 'true' });
       const name = j.items?.[0]?.snippet?.title || null;
       this.token.channel = name;
+      this.token.channelId = j.items?.[0]?.id || null;
       this.saveToken();
       this.set({ channel: name });
     } catch { /* cosmetic */ }
@@ -298,7 +380,7 @@ export default class YouTubeMonitor extends Monitor {
     const s = this.state;
     const streaming = !!ctx.monitors.vmix?.state.streaming;
     if (!s.configured) return [{ id: 'youtube.setup', level: streaming ? 'warn' : 'info', title: 'YouTube monitoring not set up', detail: 'Add your Google client ID and secret in Settings → YouTube.' }];
-    if (!s.authed) return [{ id: 'youtube.auth', level: 'warn', title: 'YouTube not connected', detail: 'Press "Connect YouTube" on the YouTube card.' }];
+    if (!s.authed) return [{ id: 'youtube.auth', level: 'warn', title: 'YouTube not connected', detail: 'Sign in on the YouTube card.' }];
     if (s.error && (this.isStale(ctx.now) || streaming)) {
       return [{ id: 'youtube.api', level: 'warn', title: "Can't check YouTube", detail: s.error }];
     }
@@ -321,6 +403,15 @@ export default class YouTubeMonitor extends Monitor {
         actions: [{ label: 'Open Settings', href: '/settings#youtube', style: 'primary' }, { label: 'Setup guide', href: 'https://github.com/DueHack12/master-broadcast-monitor#youtube' }]
       };
     }
+    if (s.auth?.mode === 'browser' && ctx.now > s.auth.expiresAt) { this.browserAuth = null; s.auth = null; }
+    if (s.auth?.mode === 'browser') {
+      return {
+        level: 'warn', status: 'Waiting for sign-in',
+        notice: { text: 'Finish in the Google tab: pick the account, then the channel you stream to. On this computer it comes back here by itself. On another device, the Google tab ends on an error page. That\'s expected: copy that page\'s full address and paste it below.' },
+        controls: [{ type: 'input', name: 'url', label: 'Address from the Google tab', placeholder: `${s.auth.redirectUri}?code=…`, post: '/api/youtube/auth/code', button: 'Finish sign-in' }],
+        actions: [{ label: 'Open Google sign-in again', href: '/oauth/youtube/start', newTab: true }, { label: 'Cancel', post: '/api/youtube/auth/cancel', style: 'subtle' }]
+      };
+    }
     if (s.auth) {
       return {
         level: 'warn', status: 'Waiting for sign-in',
@@ -332,7 +423,10 @@ export default class YouTubeMonitor extends Monitor {
       return {
         level: 'warn', status: 'Not connected',
         rows: s.error ? [{ label: 'Error', value: s.error, level: 'warn' }] : [],
-        actions: [{ label: 'Connect YouTube', post: '/api/youtube/auth/start', style: 'primary' }]
+        notice: this.cfg.clientType === 'desktop'
+          ? { text: 'Sign in with the Google account that runs your channel. You\'ll pick the channel next, including Brand Account channels.' }
+          : { text: 'You\'ll get a code to enter at google.com/device on any phone. To pick a specific channel (such as a Brand Account), use a "Desktop app" client instead: Settings → YouTube.' },
+        actions: [this.signInAction('Sign in & choose channel', 'Connect YouTube', 'primary')]
       };
     }
     const b = s.broadcast, st = s.stream;
@@ -341,6 +435,7 @@ export default class YouTubeMonitor extends Monitor {
     const receiving = st?.streamStatus === 'active';
     const healthLevel = { good: 'ok', ok: 'ok', bad: 'warn', noData: live ? 'crit' : undefined }[st?.health];
     const rows = [
+      { label: 'Channel', value: s.channel || '(unknown)' },
       { label: 'Broadcast', value: b ? b.title : 'none found' },
       { label: 'Status', value: b ? (LIFECYCLE[lc]?.label || lc) : '—', level: live ? 'ok' : (b && receiving ? 'crit' : undefined) },
       { label: 'Receiving feed', value: st ? (receiving ? 'YES' : (st.streamStatus || 'no')) : '—', level: receiving ? 'ok' : (ctx.monitors.vmix?.state.streaming ? 'crit' : undefined) },
@@ -350,7 +445,6 @@ export default class YouTubeMonitor extends Monitor {
     if (s.viewers != null) rows.push({ label: 'Viewers', value: s.viewers.toLocaleString() });
     rows.push({ label: 'Checked', value: s.lastPollAt ? `${fmtAgo(ctx.now - s.lastPollAt)} ago` : '—', level: s.error ? 'warn' : undefined });
     if (s.error) rows.push({ label: 'Error', value: s.error, level: 'warn' });
-    if (s.channel) rows.push({ label: 'Channel', value: s.channel });
 
     const issues = (st?.issues || []).filter((i) => i.severity !== 'info' || receiving);
     return {
@@ -364,8 +458,16 @@ export default class YouTubeMonitor extends Monitor {
       actions: [
         { label: 'Check now', post: '/api/youtube/refresh' },
         ...(b?.id ? [{ label: 'Open Live Control Room', href: `https://studio.youtube.com/video/${b.id}/livestreaming` }] : []),
+        this.signInAction('Switch channel', 'Reconnect', 'subtle'),
         { label: 'Disconnect', post: '/api/youtube/auth/logout', confirm: 'Disconnect YouTube?', style: 'subtle' }
       ]
     };
+  }
+
+  /** The sign-in button for the configured client type. */
+  signInAction(desktopLabel, tvLabel, style) {
+    return this.cfg.clientType === 'desktop'
+      ? { label: desktopLabel, href: '/oauth/youtube/start', newTab: true, style }
+      : { label: tvLabel, post: '/api/youtube/auth/start', style };
   }
 }
