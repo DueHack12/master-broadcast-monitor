@@ -141,13 +141,19 @@ YouTube needs a free Google Cloud API client. This is a one-time job of about 10
 1. Go to [console.cloud.google.com](https://console.cloud.google.com), create a
    project (e.g. "Broadcast Monitor").
 2. **APIs & Services → Library** → enable **YouTube Data API v3**.
-3. **APIs & Services → OAuth consent screen** → External → fill in the app name and
-   your email → add the scope `.../auth/youtube.readonly` → add the Google account
-   that owns the channel as a test user.
-   - **Then press "Publish app".** While an app is in *Testing*, Google expires
-     its sign-ins after 7 days and the monitor would need reconnecting every
-     week. Publishing a personal app does not need Google's review; you just
-     click past an "unverified app" warning when you sign in.
+3. **Google Auth Platform** (or *APIs & Services → OAuth consent screen*):
+   - **Branding:** app name *Broadcast Monitor* (Google rejects names containing
+     "YouTube" or "Google"), your email as support email. Leave the **logo
+     empty**, because a logo forces Google's full review. Homepage
+     `https://duehack12.github.io/master-broadcast-monitor/`, privacy policy
+     `https://duehack12.github.io/master-broadcast-monitor/privacy.html`,
+     authorized domain `duehack12.github.io`. These pages are in `docs/`, served by
+     GitHub Pages (repo Settings → Pages → *Deploy from a branch* → `main`, `/docs`).
+   - **Audience:** External, then **Publish app**. While an app is in
+     *Testing*, Google expires its sign-ins after 7 days. Publishing a personal
+     app doesn't need Google's review; you'll see a "Google hasn't verified this
+     app" screen when you sign in. Click **Advanced → Go to Broadcast Monitor**.
+   - **Data access:** add the scope `.../auth/youtube.readonly`.
 4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
    application type **TVs and Limited Input devices**.
 5. Copy the client ID and secret into `config.json` → `youtube.clientId` /

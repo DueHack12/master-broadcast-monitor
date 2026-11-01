@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Broadcast Monitor</title>
+  <meta name="description" content="A one-page monitor for a vMix to YouTube Live broadcast: stream chain, audio levels, scoreboard feed and NDI, with phone alerts.">
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.png" alt="">
+    <h1>Broadcast Monitor</h1>
+  </header>
+  <p class="lead">One page that tells you, at a glance, whether a live broadcast is OK.</p>
+
+  <p>Broadcast Monitor runs on a computer in your control room and shows a big status bar — green, yellow or red — for a vMix → YouTube Live production. It watches:</p>
+  <ul>
+    <li><strong>vMix</strong>: whether it is streaming, and what is on program</li>
+    <li><strong>YouTube Live</strong>: whether YouTube is receiving the feed, and whether the broadcast is actually live rather than still in preview</li>
+    <li><strong>Audio</strong>: clipping, or levels too low for too long</li>
+    <li><strong>Scoreboard feed</strong> (Sportzcast ScoreConnect) and <strong>OpenStatsEngine</strong></li>
+    <li><strong>NDI</strong> video sources on the network</li>
+  </ul>
+  <p>When something goes wrong it can alert your phone through Pushcut, SMS or a webhook.</p>
+
+  <a class="btn" href="https://github.com/DueHack12/master-broadcast-monitor/releases/latest">Download</a>
+  <a class="btn secondary" href="https://github.com/DueHack12/master-broadcast-monitor#readme">Setup guide</a>
+
+  <h2>How it uses your YouTube account</h2>
+  <p>To check your live broadcast, Broadcast Monitor asks for <strong>read-only</strong> access to your YouTube account. It reads the status of your live broadcasts and streams, and shows it on your own screen. It cannot upload, change or delete anything, and nothing is sent to us. Details are in the <a href="privacy.html">privacy policy</a>.</p>
+
+  <footer>
+    Free and open source (MIT License) · <a href="https://github.com/DueHack12/master-broadcast-monitor">Source code</a> · <a href="privacy.html">Privacy policy</a> · <a href="https://github.com/DueHack12/master-broadcast-monitor/issues">Contact</a>
+  </footer>
+</main>
+</body>
+</html>

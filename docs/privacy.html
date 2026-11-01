@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Broadcast Monitor</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.png" alt="">
+    <h1>Privacy Policy</h1>
+  </header>
+  <p class="muted">Broadcast Monitor · Effective November 1, 2026</p>
+
+  <p>Broadcast Monitor is free, open-source software that you download and run on your own computer. It has no servers, accounts or cloud service of its own. This policy explains what it does with information from your Google account.</p>
+
+  <h2>What it accesses</h2>
+  <p>If you choose to connect YouTube, Broadcast Monitor asks Google for one permission: <strong>View your YouTube account</strong> (<code>youtube.readonly</code>). With it, the app reads:</p>
+  <ul>
+    <li>your channel's name, to show which account is connected;</li>
+    <li>your current and upcoming live broadcasts: title, status (for example "live" or "preview"), privacy setting and start time;</li>
+    <li>the status and health of your live streams, including any problems YouTube reports (such as low bitrate);</li>
+    <li>the number of people watching a broadcast that is live.</li>
+  </ul>
+  <p>It does not read your stream keys, videos, comments, subscribers, analytics, email or any other Google data, and it cannot upload, change or delete anything.</p>
+
+  <h2>How it is used</h2>
+  <p>This information is used only to show your broadcast's status on the Broadcast Monitor dashboard and to decide when to warn you — for example, that you are streaming but have not gone live yet.</p>
+
+  <h2>Where it is stored</h2>
+  <ul>
+    <li>The sign-in token Google issues is saved in a file on the computer running Broadcast Monitor (<code>youtube-token.json</code> in its <code>data</code> folder).</li>
+    <li>Broadcast status is held in memory while the app runs. The app's event log (<code>events.jsonl</code>, in the same folder) records status changes, which can include broadcast titles.</li>
+    <li>Nothing is stored anywhere else.</li>
+  </ul>
+
+  <h2>Who it is shared with</h2>
+  <p>Your Google data is <strong>not sent to the developer</strong> or to any server operated by the developer, is not sold, and is not used for advertising. The app contains no analytics or tracking.</p>
+  <p>It leaves your computer only in these ways, all of which you control:</p>
+  <ul>
+    <li>Requests to Google's YouTube API, to read the information above.</li>
+    <li>If you turn on phone alerts, alert messages (which can include a broadcast's title and status) are sent to the services you set up: Pushcut, Twilio or a webhook address of your choosing.</li>
+    <li>The dashboard can be opened by anyone on the same local network as the computer running it.</li>
+  </ul>
+
+  <h2>Removing access and data</h2>
+  <ul>
+    <li>Press <strong>Disconnect</strong> on the dashboard's YouTube card to delete the saved sign-in.</li>
+    <li>Remove Broadcast Monitor's access at any time from your Google account: <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+    <li>Delete the app's settings folder (<code>Documents/Broadcast Monitor</code>) to remove everything it has stored.</li>
+  </ul>
+
+  <h2>Google API Services User Data Policy</h2>
+  <p>Broadcast Monitor's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+  <h2>Changes and contact</h2>
+  <p>Changes to this policy will be published on this page. Questions: <a href="https://github.com/DueHack12/master-broadcast-monitor/issues">open an issue on GitHub</a>.</p>
+
+  <footer><a href="./">Broadcast Monitor</a> · <a href="https://github.com/DueHack12/master-broadcast-monitor">Source code</a></footer>
+</main>
+</body>
+</html>
