@@ -34,7 +34,11 @@ Nothing else to install, not even Node.
   [Windows Firewall](#windows-firewall)). To update, save the new
   `BroadcastMonitor.exe` over the old one in the same folder.
 - **Mac:** unzip `BroadcastMonitor-<version>-macos.zip`, then right-click
-  **Broadcast Monitor → Open** the first time.
+  **Broadcast Monitor → Open** the first time. It runs inside Terminal, so when
+  macOS asks whether **Terminal** may find devices on your local network, click
+  **Allow**. Without it, NDI discovery (and reaching vMix or ScoreConnect on
+  another computer) is blocked. To change it later: System Settings → Privacy &
+  Security → Local Network → Terminal.
 - **Linux:** `BroadcastMonitor-<version>-linux-x64.tar.gz`.
 
 A console window opens showing the dashboard addresses. On first launch your
@@ -300,7 +304,8 @@ also lists every other source it sees, and the NDI inputs loaded in vMix.
 - **The card shows what discovery sees:** the networks it's searching, when
   the last answer came, and how many *other* computers are answering. If
   nothing answers, or only this computer's own sources do, it says so. That's
-  almost always Windows Firewall (below) or the wrong network.
+  almost always Windows Firewall (below), macOS's Local Network permission
+  for Terminal, or the wrong network.
 
 Setups that use an **NDI Discovery Server** instead of mDNS won't show sources here.
 

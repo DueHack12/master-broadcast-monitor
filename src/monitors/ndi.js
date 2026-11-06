@@ -122,8 +122,14 @@ export default class NdiMonitor extends Monitor {
     const others = [...(st.others || new Map()).entries()].filter(([, t]) => now - t < 5 * 60000).length;
     const settled = now - this.state.startedAt > Math.max(15000, this.cfg.scanIntervalSec * 3000);
     let hint = null;
-    if (st.mode === 'failed') hint = 'NDI discovery could not start on this computer.';
-    else if (settled && !st.answers) hint = 'Nothing has answered at all. Windows Firewall may be blocking Broadcast Monitor: allow it on both Private and Public networks. Also check Settings → NDI → Networks.';
+    const mac = process.platform === 'darwin';
+    const blocked = (st.sendErrors || []).some((e) => /EHOSTUNREACH|EPERM|EACCES|ENETUNREACH/.test(e));
+    const macTip = 'On a Mac, allow Terminal under System Settings → Privacy & Security → Local Network (Broadcast Monitor runs inside Terminal).';
+    if (mac && blocked) hint = `macOS is blocking discovery on the local network. ${macTip}`;
+    else if (st.mode === 'failed') hint = 'NDI discovery could not start on this computer.';
+    else if (settled && !st.answers) hint = mac
+      ? `Nothing has answered at all. ${macTip} Also check Settings → NDI → Networks.`
+      : 'Nothing has answered at all. Windows Firewall may be blocking Broadcast Monitor: allow it on both Private and Public networks. Also check Settings → NDI → Networks.';
     else if (settled && !others) hint = 'Only sources on this computer answer. Windows Firewall may be blocking replies from other computers (allow Broadcast Monitor on Private and Public networks), or the cameras are on a network this computer isn\'t using: check Settings → NDI → Networks.';
     return { st, others, hint };
   }
