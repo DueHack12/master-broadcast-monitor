@@ -57,7 +57,7 @@ const help = (f) => (f.help ? `<small class="help">${esc(f.help)}</small>` : '')
 const err = (p) => `<small class="err" data-err="${p}">${esc(errors[p] || '')}</small>`;
 
 function fieldHtml(f) {
-  if (f.type === 'heading') return `<h3 class="sub">${esc(f.label)}</h3>`;
+  if (f.type === 'heading') return `<h3 class="sub-heading">${esc(f.label)}</h3>`;
   const p = f.path, v = state[p];
   const id = `f-${p.replace(/\./g, '-')}`;
   switch (f.type) {
@@ -65,6 +65,12 @@ function fieldHtml(f) {
       return `<div class="field check"><label><input type="checkbox" id="${id}" data-path="${p}"${v ? ' checked' : ''}> ${esc(f.label)}</label>${help(f)}${err(p)}</div>`;
     case 'select':
       return `<div class="field"><label for="${id}">${esc(f.label)}</label><select id="${id}" data-path="${p}">${f.options.map((o) => `<option value="${esc(o.value)}"${o.value === v ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>${help(f)}${err(p)}</div>`;
+    case 'ifaces': {
+      const chosen = Array.isArray(v) ? v : [];
+      const known = loaded.hints.interfaces || [];
+      const all = [...known, ...chosen.filter((ip) => !known.some((k) => k.address === ip)).map((ip) => ({ name: 'not connected now', address: ip }))];
+      return `<div class="field"><span class="lbl">${esc(f.label)}</span><div class="checks ifaces">${all.map((i) => `<label><input type="checkbox" data-path="${p}" data-ip="${esc(i.address)}"${chosen.includes(i.address) ? ' checked' : ''}> ${esc(i.address)} <span class="muted small">${esc(i.name)}</span></label>`).join('') || '<span class="muted small">No network cards found.</span>'}</div>${help(f)}${err(p)}</div>`;
+    }
     case 'checks':
       return `<div class="field"><span class="lbl">${esc(f.label)}</span><div class="checks">${f.options.map((o) => `<label><input type="checkbox" data-path="${p}" data-value="${o}"${(v || []).includes(o) ? ' checked' : ''}> ${o}</label>`).join('')}</div>${help(f)}${err(p)}</div>`;
     case 'secret':
@@ -184,6 +190,9 @@ form.addEventListener('change', (e) => {
   if (t.dataset.audio) {
     const i = +t.closest('[data-audio-index]').dataset.audioIndex;
     state['audio.sources'] = state['audio.sources'].map((s, j) => (j === i ? { ...s, [t.dataset.audio]: t.value } : s));
+  } else if (t.dataset.path && t.type === 'checkbox' && t.dataset.ip) {
+    const p = t.dataset.path;
+    state[p] = $$(`input[data-path="${p}"][data-ip]`).filter((x) => x.checked).map((x) => x.dataset.ip);
   } else if (t.dataset.path && t.type === 'checkbox' && t.dataset.value) {
     const p = t.dataset.path;
     state[p] = $$(`input[data-path="${p}"][data-value]`).filter((x) => x.checked).map((x) => Number(x.dataset.value));

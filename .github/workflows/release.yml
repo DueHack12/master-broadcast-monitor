@@ -114,11 +114,11 @@ jobs:
           fi
           PRE=""
           case "$TAG" in *-*) PRE="--prerelease" ;; esac
-          gh release create "$TAG" dist/BroadcastMonitor-* \
+          gh release create "$TAG" dist/BroadcastMonitor* \
             --target "${{ github.sha }}" --title "${TITLE:-$TAG}" --notes-file "$RUNNER_TEMP/notes.md" $PRE
 
       - name: Attach to the release
         if: steps.rel.outputs.skip != 'true' && steps.rel.outputs.create != 'true'
         env:
           TAG: ${{ steps.rel.outputs.tag }}
-        run: gh release upload "$TAG" dist/BroadcastMonitor-* --clobber
+        run: gh release upload "$TAG" dist/BroadcastMonitor* --clobber

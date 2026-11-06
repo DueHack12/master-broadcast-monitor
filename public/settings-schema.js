@@ -85,7 +85,9 @@ export const SECTIONS = [
   {
     id: 'ndi', title: 'NDI', toggle: 'ndi.enabled',
     fields: [
-      { path: 'ndi.expected', label: 'Sources that must be present', type: 'list', item: 'source', help: 'Part of the name is enough: "Camera 1" matches "CAM-PC (Camera 1)".' }
+      { path: 'ndi.expected', label: 'Sources that must be present', type: 'list', item: 'source', help: 'Part of the name is enough: "Camera 1" matches "CAM-PC (Camera 1)".' },
+      { path: 'ndi.interfaces', label: 'Networks to search', type: 'ifaces', help: 'Tick the network your cameras and NDI computers are on. None ticked = every network card (except loopback).' },
+      { path: 'ndi.goneAfterSec', label: 'Call a source offline after (seconds)', type: 'number', min: 10, max: 300, advanced: true, help: 'A source that stops answering is asked directly, then its NDI port is tested, before it is called offline.' }
     ]
   },
   {
@@ -210,6 +212,13 @@ export function checkField(f, raw) {
         return { value: items.map((p) => p.replace(/[ ()-]/g, '')) };
       }
       return { value: items };
+    }
+    case 'ifaces': {
+      if (!Array.isArray(raw)) return { error: 'Must be a list.' };
+      const ips = [...new Set(raw.map(str).filter(Boolean))];
+      const bad = ips.find((ip) => !/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(ip) || ip.split('.').some((n) => Number(n) > 255));
+      if (bad) return { error: `"${bad}" is not an IPv4 address.` };
+      return { value: ips };
     }
     case 'checks': {
       if (!Array.isArray(raw)) return { error: 'Must be a list.' };

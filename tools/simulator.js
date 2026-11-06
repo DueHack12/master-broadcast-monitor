@@ -15,18 +15,20 @@ import { createHash } from 'node:crypto';
 import { packet } from '../src/lib/mqtt.js';
 import { MDNS_ADDR, MDNS_PORT, NDI_SERVICE, parsePacket } from '../src/lib/mdns.js';
 
-export const PORTS = { control: 18000, vmix: 18088, ose: 18080, youtube: 18443, mqtt: 11883 };
+export const PORTS = { control: 18000, vmix: 18088, ose: 18080, youtube: 18443, mqtt: 11883, ndiBase: 15961 };
 
 export const sim = {
   vmix: { online: true, streaming: false, ftb: false, masterMuted: false, audio: 'normal', streamStartedAt: null },
   youtube: { lifecycle: 'ready', receiving: 'auto', health: 'good', authApprovedAfterMs: 4000 },
   scorebot: { running: true, sending: true, sport: 'football' },
   ose: { running: true, sport: 'Football', feedConnected: true },
-  ndi: { sources: ['VMIX-PC (vMix - Output 1)', 'CAM-PC (Camera 1)', 'CAM-PC (Camera 2)'], enabled: true }
+  // answerRate: share of discovery questions answered (real senders skip some);
+  // discoverySilent: senders keep running but stop answering discovery at all.
+  ndi: { sources: ['VMIX-PC (vMix - Output 1)', 'CAM-PC (Camera 1)', 'CAM-PC (Camera 2)'], enabled: true, answerRate: 1, discoverySilent: false, goodbye: true }
 };
 
 export const SCENARIOS = {
-  'Pre-show (standby)': { 'vmix.online': true, 'vmix.streaming': false, 'vmix.ftb': false, 'vmix.masterMuted': false, 'vmix.audio': 'normal', 'youtube.lifecycle': 'ready', 'youtube.receiving': 'auto', 'youtube.health': 'good', 'scorebot.running': true, 'scorebot.sending': true, 'scorebot.sport': 'football', 'ose.running': true, 'ose.feedConnected': true, 'ndi.sources': ['VMIX-PC (vMix - Output 1)', 'CAM-PC (Camera 1)', 'CAM-PC (Camera 2)'] },
+  'Pre-show (standby)': { 'vmix.online': true, 'vmix.streaming': false, 'vmix.ftb': false, 'vmix.masterMuted': false, 'vmix.audio': 'normal', 'youtube.lifecycle': 'ready', 'youtube.receiving': 'auto', 'youtube.health': 'good', 'scorebot.running': true, 'scorebot.sending': true, 'scorebot.sport': 'football', 'ose.running': true, 'ose.feedConnected': true, 'ndi.sources': ['VMIX-PC (vMix - Output 1)', 'CAM-PC (Camera 1)', 'CAM-PC (Camera 2)'], 'ndi.answerRate': 1, 'ndi.discoverySilent': false },
   'Streaming, NOT live (preview)': { 'vmix.online': true, 'vmix.streaming': true, 'youtube.lifecycle': 'testing', 'youtube.receiving': 'auto' },
   'LIVE — all good': { 'vmix.online': true, 'vmix.streaming': true, 'vmix.audio': 'normal', 'vmix.masterMuted': false, 'youtube.lifecycle': 'live', 'youtube.receiving': 'auto', 'youtube.health': 'good' },
   'LIVE — YouTube not receiving': { 'vmix.streaming': true, 'youtube.lifecycle': 'live', 'youtube.receiving': 'no' },
@@ -41,7 +43,9 @@ export const SCENARIOS = {
   'ScoreConnect not running': { 'scorebot.running': false },
   'OSE not connected to feed': { 'ose.feedConnected': false },
   'OSE closed': { 'ose.running': false },
-  'NDI camera missing': { 'ndi.sources': ['VMIX-PC (vMix - Output 1)', 'CAM-PC (Camera 1)'] }
+  'NDI camera missing': { 'ndi.sources': ['VMIX-PC (vMix - Output 1)', 'CAM-PC (Camera 1)'] },
+  'NDI discovery unreliable (30% answers)': { 'ndi.answerRate': 0.3 },
+  'NDI senders stop answering discovery': { 'ndi.discoverySilent': true }
 };
 
 export function setPath(p, v) {
@@ -49,6 +53,7 @@ export function setPath(p, v) {
   if (!sim[a] || !(b in sim[a])) throw new Error(`unknown ${p}`);
   const cur = sim[a][b];
   if (typeof cur === 'boolean') v = v === true || v === 'true' || v === '1';
+  else if (typeof cur === 'number') v = Number(v);
   if (p === 'vmix.streaming') sim.vmix.streamStartedAt = v ? (sim.vmix.streaming ? sim.vmix.streamStartedAt : Date.now()) : null;
   sim[a][b] = v;
 }
@@ -264,12 +269,13 @@ function rr(nameLabels, type, ttl, rdata) {
   h.writeUInt16BE(type, 0); h.writeUInt16BE(0x0001, 2); h.writeUInt32BE(ttl, 4); h.writeUInt16BE(rdata.length, 8);
   return Buffer.concat([labels(nameLabels), h, rdata]);
 }
-export function ndiResponse(sources, ttl = 120) {
+/** An mDNS answer for these sources. `portOf(name)` gives each one's NDI TCP port. */
+export function ndiResponse(sources, ttl = 120, portOf = () => 5961) {
   const svc = NDI_SERVICE.split('.');
   const recs = [];
   for (const name of sources) {
     recs.push(rr(svc, 12, ttl, labels([name, ...svc])));
-    const srv = Buffer.alloc(6); srv.writeUInt16BE(0, 0); srv.writeUInt16BE(0, 2); srv.writeUInt16BE(5961, 4);
+    const srv = Buffer.alloc(6); srv.writeUInt16BE(0, 0); srv.writeUInt16BE(0, 2); srv.writeUInt16BE(portOf(name), 4);
     recs.push(rr([name, ...svc], 33, ttl, Buffer.concat([srv, labels(['sim-ndi', 'local'])])));
   }
   recs.push(rr(['sim-ndi', 'local'], 1, ttl, Buffer.from([127, 0, 0, 1])));
@@ -278,21 +284,55 @@ export function ndiResponse(sources, ttl = 120) {
   header.writeUInt16BE(recs.length, 6);
   return Buffer.concat([header, ...recs]);
 }
-function mdnsResponder() {
+
+/**
+ * Fake NDI senders: answer discovery like a real responder (with optional
+ * unreliability), keep a TCP port open per source like a real sender, and
+ * send a "goodbye" when a source is removed.
+ */
+function mdnsResponder(ndiBase) {
+  const ports = new Map();
+  let nextPort = ndiBase;
+  const portOf = (n) => { if (!ports.has(n)) ports.set(n, nextPort++); return ports.get(n); };
+  const tcp = new Map();
+  let announced = new Set();
   const sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
   sock.on('error', (e) => console.log(`  (NDI simulation unavailable: ${e.message})`));
   sock.on('message', (msg, rinfo) => {
-    if (!sim.ndi.enabled || !sim.ndi.sources.length) return;
+    const n = sim.ndi;
+    if (!n.enabled || !n.sources.length || n.discoverySilent || Math.random() > n.answerRate) return;
     try {
       if (parsePacket(msg).isResponse) return;
       if (!msg.toString('latin1').includes('_ndi')) return;
-      const reply = ndiResponse(sim.ndi.sources);
+      const reply = ndiResponse(n.sources, 120, portOf);
       if (rinfo.port === MDNS_PORT) sock.send(reply, MDNS_PORT, MDNS_ADDR);
       else sock.send(reply, rinfo.port, rinfo.address);
     } catch { /* ignore */ }
   });
   sock.bind(MDNS_PORT, () => { try { sock.addMembership(MDNS_ADDR); sock.setMulticastLoopback(true); } catch (e) { console.log(`  (NDI multicast: ${e.message})`); } });
-  return sock;
+
+  const sync = setInterval(() => {
+    const present = new Set(sim.ndi.enabled ? sim.ndi.sources : []);
+    for (const name of present) {
+      if (tcp.has(name)) continue;
+      const srv = net.createServer((c) => c.destroy());
+      srv.on('error', () => {});
+      srv.listen(portOf(name), '127.0.0.1');
+      tcp.set(name, srv);
+    }
+    for (const [name, srv] of tcp) if (!present.has(name)) { srv.close(); tcp.delete(name); }
+    const gone = [...announced].filter((name) => !present.has(name));
+    if (gone.length && sim.ndi.goodbye) { try { sock.send(ndiResponse(gone, 0, portOf), MDNS_PORT, MDNS_ADDR); } catch { /* closing */ } }
+    announced = present;
+  }, 300);
+
+  return {
+    close() {
+      clearInterval(sync);
+      try { sock.close(); } catch { /* */ }
+      for (const srv of tcp.values()) srv.close();
+    }
+  };
 }
 
 /* ---------------- control page ---------------- */
@@ -313,7 +353,7 @@ load();setInterval(load,2000);
 
 function readBody(req) { return new Promise((r) => { let d = ''; req.on('data', (c) => { d += c; }); req.on('end', () => r(d)); }); }
 
-export function startSimulator({ quiet = false, ports = PORTS } = {}) {
+export function startSimulator({ quiet = false, ports = PORTS, mdns: withMdns = true } = {}) {
   const servers = [];
   const listen = (srv, port, name) => new Promise((resolve) => {
     srv.on('error', (e) => { console.error(`  ${name}: ${e.message}`); resolve(); });
@@ -344,7 +384,7 @@ export function startSimulator({ quiet = false, ports = PORTS } = {}) {
     res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(controlPage());
   });
   const mqtt = mqttBroker();
-  const mdns = mdnsResponder();
+  const mdns = withMdns ? mdnsResponder(ports.ndiBase || PORTS.ndiBase) : null;
 
   const ready = Promise.all([
     listen(control, ports.control, 'Control page'),
@@ -357,7 +397,7 @@ export function startSimulator({ quiet = false, ports = PORTS } = {}) {
     ready,
     close: () => {
       for (const s of servers) { s.close(); s.closeAllConnections?.(); }
-      try { mdns.close(); } catch { /* */ }
+      mdns?.close();
     }
   };
 }

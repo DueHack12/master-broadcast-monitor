@@ -4,6 +4,7 @@ import path from 'node:path';
 import { detectSport, SPORTS } from './lib/sports.js';
 import { FIELDS, isSecret, getPath, validate } from '../public/settings-schema.js';
 import { readAsset } from './runtime.js';
+import { pickInterfaces } from './lib/mdns.js';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -160,7 +161,8 @@ function configPayload(app, port) {
     hints: {
       publicUrl: ip ? `http://${ip}:${port}` : '',
       vmixInputs: vm ? vm.inputs.map((i) => i.title).filter(Boolean) : [],
-      ndiSources: ndi ? ndi.online(Date.now()).map((s) => s.name) : []
+      ndiSources: ndi ? ndi.online().map((s) => s.name) : [],
+      interfaces: pickInterfaces(os.networkInterfaces(), []).map(({ name, address }) => ({ name, address }))
     }
   };
 }

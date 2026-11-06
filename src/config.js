@@ -71,7 +71,7 @@ export const DEFAULTS = {
     enabled: true,
     expected: [],
     scanIntervalSec: 5,
-    goneAfterSec: 20,
+    goneAfterSec: 30,
     interfaces: []
   },
   notify: {

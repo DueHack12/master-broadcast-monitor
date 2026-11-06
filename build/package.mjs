@@ -10,7 +10,9 @@
  * are attached as assets, and both are injected into a copy of the official
  * Node binary for each platform. Output lands in dist/.
  *
- * - win   → BroadcastMonitor-<v>-windows-x64.exe  (buildable on any OS)
+ * - win   → BroadcastMonitor.exe  (buildable on any OS). The same name every
+ *           version: Windows Firewall remembers permission by file path, so an
+ *           update saved over the old file keeps working on the network.
  * - mac   → BroadcastMonitor-<v>-macos.zip, a universal .app. Must be built on
  *           a Mac: the binary has to be re-signed after injection.
  * - linux → BroadcastMonitor-<v>-linux-x64.tar.gz
@@ -183,7 +185,7 @@ const out = [];
 /* ---------- Windows ---------- */
 if (targets.includes('win')) {
   console.log('\nWindows');
-  const exe = path.join(DIST, `${NAME}-${VERSION}-windows-x64.exe`);
+  const exe = path.join(DIST, `${NAME}.exe`);
   await nodeBinary('win', 'x64', exe);
   inject(exe);
   await brandWindowsExe(exe);

@@ -26,9 +26,13 @@ Download the latest from
 [Releases](https://github.com/DueHack12/master-broadcast-monitor/releases/latest).
 Nothing else to install, not even Node.
 
-- **Windows:** `BroadcastMonitor-<version>-windows-x64.exe`. Double-click it. The
-  first time, Windows SmartScreen says it's from an unknown publisher, because
-  the app isn't code-signed: click **More info → Run anyway**.
+- **Windows:** `BroadcastMonitor.exe`. Put it in a folder of its own (e.g.
+  `C:\Broadcast Monitor`) and double-click it. The first time, Windows
+  SmartScreen says it's from an unknown publisher, because the app isn't
+  code-signed: click **More info → Run anyway**. Then Windows Firewall asks
+  about network access: **tick both Private and Public**, then Allow (see
+  [Windows Firewall](#windows-firewall)). To update, save the new
+  `BroadcastMonitor.exe` over the old one in the same folder.
 - **Mac:** unzip `BroadcastMonitor-<version>-macos.zip`, then right-click
   **Broadcast Monitor → Open** the first time.
 - **Linux:** `BroadcastMonitor-<version>-linux-x64.tar.gz`.
@@ -283,9 +287,39 @@ Sources are found by mDNS, the way NDI Studio Monitor finds them. Matching is
 case-insensitive and partial: `"Camera 1"` matches `CAM-PC (Camera 1)`. The card
 also lists every other source it sees, and the NDI inputs loaded in vMix.
 
-If the monitor machine has several network cards, set `ndi.interfaces` to the
-broadcast-network IP (e.g. `["10.10.0.20"]`). Setups that use an **NDI Discovery
-Server** instead of mDNS won't show sources here.
+- **Which networks:** by default every network card except loopback.
+  If the computer is on several networks, tick just the NDI one in
+  **Settings → NDI → Networks to search**. New network cards and changed
+  addresses are picked up automatically.
+- **Offline means offline:** discovery answers get lost, and senders don't
+  answer every question. A source that goes quiet is asked directly. If it
+  still doesn't answer, its NDI port gets a quick connection test. Only if that
+  fails too is it called offline: after 30 seconds by default (*Settings → NDI →
+  More options*). A sender that signs off (shut down cleanly) goes offline 2
+  seconds later.
+- **The card shows what discovery sees:** the networks it's searching, when
+  the last answer came, and how many *other* computers are answering. If
+  nothing answers, or only this computer's own sources do, it says so. That's
+  almost always Windows Firewall (below) or the wrong network.
+
+Setups that use an **NDI Discovery Server** instead of mDNS won't show sources here.
+
+### Windows Firewall
+
+Windows asks the first time Broadcast Monitor runs. A broadcast network with
+no internet usually shows up as an "Unidentified network", which Windows treats
+as **Public**, and the prompt only ticks Private. If Public isn't allowed, NDI
+replies from other computers are blocked, and so is opening the dashboard from
+other devices.
+
+To fix it afterwards: **Windows Security → Firewall & network protection →
+Allow an app through firewall → Change settings**, find *Broadcast Monitor* (or
+*Allow another app…* and pick `BroadcastMonitor.exe`), and tick **Private and
+Public**.
+
+Windows remembers this per file path. Keep the `.exe` in one folder and save
+updates over it. A copy in another folder, or under another name, gets asked
+about again.
 
 ---
 

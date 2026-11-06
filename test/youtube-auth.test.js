@@ -21,7 +21,7 @@ test('choose a channel with browser sign-in', { timeout: 60000 }, async (t) => {
     vmix: { enabled: false }, audio: { enabled: false }, scorebot: { enabled: false }, ose: { enabled: false }, ndi: { enabled: false },
     youtube: { clientType: 'desktop', clientId: 'c', clientSecret: 's', apiBase: G, oauthBase: G, authBase: `${G}/o/oauth2/v2/auth`, pollIdleSec: 1 }
   }));
-  const sim = startSimulator({ quiet: true, ports: P });
+  const sim = startSimulator({ quiet: true, ports: P, mdns: false });
   await sim.ready;
   const app = new App({ config: new ConfigStore(path.join(dir, 'config.json')), dataDir: dir });
   app.start();

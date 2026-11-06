@@ -40,7 +40,7 @@ test('full show walk-through against the simulator', { timeout: 120000 }, async 
   }));
   fs.writeFileSync(path.join(dir, 'youtube-token.json'), JSON.stringify({ refresh_token: 'demo-refresh' }));
 
-  const sim = startSimulator({ quiet: true, ports: P });
+  const sim = startSimulator({ quiet: true, ports: P, mdns: false });
   await sim.ready;
   scenario('Pre-show (standby)');
   const config = new ConfigStore(path.join(dir, 'config.json'));
